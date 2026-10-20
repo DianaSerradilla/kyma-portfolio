@@ -1,0 +1,90 @@
+@import "tailwindcss";
+@import "@fontsource-variable/nunito";
+
+/* Stolzl — brand typeface for headings. Book sits between Light and Regular. */
+@font-face {
+  font-family: "Stolzl";
+  src: url("./assets/fonts/stolzl/stolzl-thin.otf") format("opentype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Stolzl";
+  src: url("./assets/fonts/stolzl/stolzl-light.otf") format("opentype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Stolzl";
+  src: url("./assets/fonts/stolzl/stolzl-book.otf") format("opentype");
+  font-weight: 350;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Stolzl";
+  src: url("./assets/fonts/stolzl/stolzl-regular.otf") format("opentype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Stolzl";
+  src: url("./assets/fonts/stolzl/stolzl-medium.otf") format("opentype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Stolzl";
+  src: url("./assets/fonts/stolzl/stolzl-bold.otf") format("opentype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  /* Brand palette */
+  --color-paper: #e5e0d4;
+  --color-ink: #070707;
+  --color-primary: #ff3517;
+  --color-secondary: #5900ff;
+
+  /* Brand typefaces. Nunito for text and interface, Stolzl for headings,
+     Pinyon Script only for very striking titles. */
+  --font-sans: "Nunito Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Stolzl", "Nunito Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-script: "Pinyon Script", cursive;
+
+  --radius-section: 2.5rem;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    /* Keep the scrollbar's space reserved while scrolling is locked (preloader), so the
+       layout width never changes when it comes back and pinned sections do not overflow. */
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    background-color: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Set by <Cursor /> only on devices with a precise pointer. */
+  .has-custom-cursor,
+  .has-custom-cursor * {
+    cursor: none !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+}
