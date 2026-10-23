@@ -2,6 +2,7 @@ import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { Fragment, useCallback, useRef, useState } from 'react'
+import { BrandReel } from '../components/team/BrandReel'
 import { TeamCard } from '../components/team/TeamCard'
 import { TeamRibbon } from '../components/team/TeamRibbon'
 import { SectionLabel } from '../components/ui/SectionLabel'
@@ -20,7 +21,17 @@ const STATEMENT: Chunk[] = [
   { text: 'hace real', bold: true },
 ]
 
-const SCROLL_LENGTH = '+=400%'
+const SCROLL_LENGTH_SCREENS = 6.4
+const SCROLL_LENGTH = `+=${SCROLL_LENGTH_SCREENS * 100}%`
+// Scroll plan of the pinned section (share of its length): the strip travels first, then the
+// video frame beside the last photo grows to fill the screen...
+const RIBBON_SHARE = 0.62
+const EXPAND_FROM = 0.64
+const EXPAND_TO = 0.8
+// ...and then everything holds still, with the video exactly centred and full, for the rest
+// of the pin (about a screen and a bit of scrolling) before the next section rises over it.
+// The #brandboard anchor sits in the middle of that hold.
+const BRANDBOARD_AT = 0.9
 const clamp = (value: number, min = 0, max = 1) => Math.min(Math.max(value, min), max)
 
 export function About() {
@@ -30,6 +41,8 @@ export function About() {
   const gridRef = useRef<HTMLUListElement>(null)
   const progressRef = useRef(0)
   const enterRef = useRef(0)
+  const expandRef = useRef(0)
+  const textRef = useRef<HTMLDivElement>(null)
 
   // 3D strip on large screens; a plain grid on phones, with reduced motion, or without WebGL.
   const [webglOk, setWebglOk] = useState(true)
@@ -77,19 +90,21 @@ export function About() {
       }
       lightWords(0)
 
+      const apply = (progress: number) => {
+        const travel = clamp(progress / RIBBON_SHARE)
+        progressRef.current = travel
+        expandRef.current = clamp((progress - EXPAND_FROM) / (EXPAND_TO - EXPAND_FROM))
+        // The video panel is drawn in the 3D scene, below the text: fade the text out as it opens.
+        if (textRef.current) textRef.current.style.opacity = String(1 - clamp(expandRef.current * 2.5))
+        lightWords(travel)
+      }
       const trigger = ScrollTrigger.create({
         trigger: pin,
         start: 'top top',
         end: SCROLL_LENGTH,
         pin: true,
-        onUpdate: (self) => {
-          progressRef.current = self.progress
-          lightWords(self.progress)
-        },
-        onRefresh: (self) => {
-          progressRef.current = self.progress
-          lightWords(self.progress)
-        },
+        onUpdate: (self) => apply(self.progress),
+        onRefresh: (self) => apply(self.progress),
       })
       // The strip fades in while the section scrolls into view, before it pins.
       const arrival = ScrollTrigger.create({
@@ -114,16 +129,31 @@ export function About() {
   )
 
   return (
-    <section ref={sectionRef} id="quienes-somos" aria-labelledby="quienes-somos-title">
+    <section ref={sectionRef} id="quienes-somos" aria-labelledby="quienes-somos-title" className="relative">
+      {ribbon && (
+        <span
+          id="brandboard"
+          aria-hidden
+          className="pointer-events-none absolute left-0 size-px"
+          style={{ top: `calc(${SCROLL_LENGTH_SCREENS * BRANDBOARD_AT} * 100svh)` }}
+        />
+      )}
       <div
         ref={pinRef}
         className={ribbon ? 'relative h-svh overflow-hidden' : 'mx-auto max-w-[1600px] px-5 py-24 md:px-8 md:py-40'}
       >
         {ribbon && (
-          <TeamRibbon members={team} progressRef={progressRef} enterRef={enterRef} onUnsupported={onUnsupported} />
+          <TeamRibbon
+            members={team}
+            progressRef={progressRef}
+            enterRef={enterRef}
+            expandRef={expandRef}
+            onUnsupported={onUnsupported}
+          />
         )}
 
         <div
+          ref={textRef}
           className={
             ribbon
               ? 'pointer-events-none absolute inset-y-0 left-0 z-20 flex w-[48%] flex-col justify-center px-8'
@@ -164,11 +194,22 @@ export function About() {
         </div>
 
         {!ribbon && (
-          <ul ref={gridRef} className="mt-16 grid grid-cols-2 gap-x-3 gap-y-8 md:grid-cols-6 md:gap-x-4">
-            {team.map((member) => (
-              <TeamCard key={member.id} member={member} className="md:even:mt-14" />
-            ))}
-          </ul>
+          <>
+            <ul ref={gridRef} className="mt-16 grid grid-cols-2 gap-x-3 gap-y-8 md:grid-cols-6 md:gap-x-4">
+              {team.map((member) => (
+                <TeamCard key={member.id} member={member} className="md:even:mt-14" />
+              ))}
+            </ul>
+
+            {/* Without the 3D strip the video is a plain frame after the portraits. */}
+            <div
+              id="brandboard"
+              data-full="1"
+              className="group relative mt-16 aspect-video overflow-hidden rounded-3xl bg-ink md:mt-24"
+            >
+              <BrandReel open />
+            </div>
+          </>
         )}
       </div>
     </section>

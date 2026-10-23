@@ -67,6 +67,17 @@
     /* Keep the scrollbar's space reserved while scrolling is locked (preloader), so the
        layout width never changes when it comes back and pinned sections do not overflow. */
     scrollbar-gutter: stable;
+    /* The page never scrolls sideways; anything that overshoots is clipped, not scrollable. */
+    overflow-x: clip;
+  }
+
+  /* GSAP writes the pin-spacer width in px, which goes stale when the window is resized
+     and then overflows. Let it follow its container instead. */
+  .pin-spacer,
+  .pin-spacer > * {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
   }
 
   body {
@@ -87,4 +98,41 @@
       scroll-behavior: auto;
     }
   }
+}
+
+/* The dark layer behind an open modal fades in instead of appearing at once. */
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+dialog[open]::backdrop {
+  animation: backdrop-in 0.35s ease both;
+}
+
+/* Same layer as the cursor rule, so its specificity decides: layered !important beats unlayered. */
+@layer base {
+  /* The modal sits above the page's own cursor, so inside it the normal pointer comes back. */
+  .has-custom-cursor dialog,
+  .has-custom-cursor dialog * {
+    cursor: auto !important;
+  }
+
+  .has-custom-cursor dialog button,
+  .has-custom-cursor dialog video {
+    cursor: pointer !important;
+  }
+}
+
+/* Very fine, colourless grain over every background: black and white speckles of low
+   opacity, so it shows on dark and on light sections alike. It never intercepts the pointer. */
+.site-grain {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  opacity: 0.1;
+  background-size: 200px 200px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='a' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.6 0 0 0 -.7'/%3E%3C/filter%3E%3Cfilter id='b' x='0' y='0' width='100%25' height='100%25' color-interpolation-filters='sRGB'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 1.6 0 0 -.7'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23a)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23b)'/%3E%3C/svg%3E");
 }

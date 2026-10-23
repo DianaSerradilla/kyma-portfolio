@@ -22,8 +22,8 @@ export function DockNav() {
   }, [])
 
   const itemClass = 'rounded-full'
-  // The bar is light on a dark page, so the rolling copy is the inverse of the header nav.
-  const rollClass = 'bg-ink text-paper'
+  // The bar is frosted glass with light text, so the rolling copy on hover is a light pill.
+  const rollClass = 'bg-paper text-ink'
   const itemPadding = 'px-2.5 py-2.5 sm:px-4'
 
   return (
@@ -34,9 +34,11 @@ export function DockNav() {
       initial={false}
       animate={{ y: visible ? 0 : 110, opacity: visible ? 1 : 0 }}
       transition={{ duration: reduceMotion ? 0 : 0.6, ease: EASE_OUT_EXPO }}
-      className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 sm:bottom-6"
+      // Phones use the fixed menu button instead of this bar.
+      className="fixed bottom-4 left-1/2 z-50 hidden -translate-x-1/2 md:block sm:bottom-6"
     >
-      <ul className="flex items-center rounded-full bg-paper p-1.5 text-[0.6875rem] font-medium text-ink sm:text-xs">
+      {/* Transparent with the page blurred behind it; a light dark tint keeps the text readable over pale sections too. */}
+      <ul className="flex items-center rounded-full border border-paper/15 bg-ink/55 p-1.5 text-[0.6875rem] font-medium text-paper backdrop-blur-xl backdrop-saturate-150 sm:text-xs">
         <li>
           <NavLink href="#top" padding={itemPadding} className={itemClass} rollClassName={rollClass}>
             <Logotype className="h-4 align-middle" label="Kyma, ir al inicio" />

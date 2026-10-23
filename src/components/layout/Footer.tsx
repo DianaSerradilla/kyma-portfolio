@@ -14,14 +14,14 @@ const siteMap = [
 ] as const
 
 const linkClass =
-  'transition-colors hover:text-paper focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink'
+  'transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary'
 
 export function Footer() {
   return (
-    <footer className="rounded-t-section bg-primary text-ink">
+    <footer className="border-t border-paper/10 bg-ink text-paper">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-16 px-5 pb-28 pt-20 md:px-8 md:pt-28 lg:flex-row lg:items-end lg:justify-between">
         <p className="font-display text-[clamp(3rem,9vw,8rem)] font-light uppercase leading-[0.9]">
-          Ideas <Isotype className="h-[0.85em] align-[-0.08em]" /> en
+          Ideas <Isotype className="h-[0.85em] align-[-0.08em] text-primary" /> en
           <strong className="block font-bold">Movimiento</strong>
         </p>
 

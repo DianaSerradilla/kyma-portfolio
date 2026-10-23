@@ -16,7 +16,11 @@ const FOV = 38
 const CAMERA_Z = 9.5
 const TILT = -0.62 // radians: the strip runs from the bottom right up to the top, clear of the text
 const START_X = 0.6 // where the strip begins when the section pins: the first photo sits low, not cut at the top
-const END_MARGIN = 0.3 // how far past the exit the last panel travels (fraction of the view)
+const REEL_H = PANEL_H // the video frame that follows the last photo is as tall as the photos...
+const REEL_W = (REEL_H * 16) / 9 // ...and 16:9
+const REEL_GAP = 0.25 // gap between the last photo and the frame
+const REEL_REST = 1.6 // where the frame rests along the strip when it is ready to open (from the anchor)
+const REEL_SEG_X = SEG_X * 3
 
 // Where the strip sits, as a fraction of the view: to the right of and above the text.
 const ANCHOR_X = 0.3
@@ -40,7 +44,15 @@ type Options = {
   progressRef: { current: number }
   /** 0..1 how far the section has arrived (before it pins); the strip fades in with it. */
   enterRef: { current: number }
+  /** Holds the brandboard <video> (its frames become the texture of the last panel) and its controls. */
+  reel: HTMLElement
+  /** Still shown on the last panel until the video has its first frame. */
+  reelPoster: string
+  /** 0..1 how far the frame has grown from its place in the strip to the whole screen. */
+  expandRef: { current: number }
   onHover: (index: number) => void
+  /** Called with true once the frame starts to open (the video should play) and false when it closes. */
+  onReel: (open: boolean) => void
 }
 
 function loadImage(src: string) {
@@ -163,9 +175,49 @@ const fragmentShader = /* glsl */ `
   }
 `
 
+// The video panel: the same rounded, shaded surface as the photos, but in colour. While it
+// opens (uT: 0 -> 1) its corners square off, the shading goes away and the video is
+// cropped to fill the shape, whatever its proportions.
+const reelFragmentShader = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vView;
+  varying float vNdcX;
+  uniform sampler2D uMap;
+  uniform vec2 uPlane;
+  uniform float uT;
+
+  float roundBox(vec2 p, vec2 b, float r) {
+    vec2 q = abs(p) - b + r;
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+  }
+
+  void main() {
+    vec2 p = (vUv - 0.5) * uPlane;
+    float d = roundBox(p, uPlane * 0.5 - mix(0.035, 0.0, uT), mix(0.13, 0.0, uT));
+    float aa = fwidth(d);
+    float alpha = 1.0 - smoothstep(-aa, aa, d);
+    if (alpha < 0.01) discard;
+
+    float planeAspect = uPlane.x / uPlane.y;
+    const float videoAspect = 16.0 / 9.0;
+    vec2 uv = vUv;
+    if (planeAspect > videoAspect) uv.y = (uv.y - 0.5) * (videoAspect / planeAspect) + 0.5;
+    else uv.x = (uv.x - 0.5) * (planeAspect / videoAspect) + 0.5;
+    vec3 colour = texture2D(uMap, uv).rgb;
+
+    vec3 normal = normalize(cross(dFdx(vView), dFdy(vView)));
+    float shade = mix(mix(0.45, 1.0, smoothstep(0.45, 0.98, abs(normal.z))), 1.0, uT);
+    float fade = mix(smoothstep(${FADE_FROM.toFixed(2)}, ${FADE_TO.toFixed(2)}, vNdcX), 1.0, uT);
+    gl_FragColor = vec4(colour * shade, alpha * fade);
+  }
+`
+
 // A continuous strip of portraits that bends around the viewer and travels along
 // a diagonal as the section is scrolled. Returns a function that cleans everything up.
-export function createRibbonScene(THREE: Three, { wrap, label, members, progressRef, enterRef, onHover }: Options) {
+export function createRibbonScene(
+  THREE: Three,
+  { wrap, label, members, progressRef, enterRef, reel, reelPoster, expandRef, onHover, onReel }: Options,
+) {
   const count = members.length
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true })
   renderer.setClearColor(0x000000, 0)
@@ -180,6 +232,10 @@ export function createRibbonScene(THREE: Three, { wrap, label, members, progress
   scene.add(group)
 
   const totalLength = count * PANEL_W
+  // Where the middle of the video frame sits along the strip, and how far the strip must
+  // travel to bring it to the anchor point (its resting place beside the last photo).
+  const reelAlong = totalLength + REEL_GAP + REEL_W / 2
+  const travel = START_X + reelAlong - REEL_REST
   const geometry = new THREE.PlaneGeometry(totalLength, PANEL_H, SEG_X * count, SEG_Y)
   const position = geometry.attributes.position as ThreeNS.BufferAttribute
   const basePositions = Float32Array.from(position.array)
@@ -196,11 +252,40 @@ export function createRibbonScene(THREE: Three, { wrap, label, members, progress
   const mesh = new THREE.Mesh(geometry, material)
   mesh.frustumCulled = false
 
+  // The video panel is a second surface, bent with the same formula right after the last photo.
+  // It is drawn on top of everything, so once it has grown it covers the strip behind it.
+  const reelGeometry = new THREE.PlaneGeometry(REEL_W, REEL_H, REEL_SEG_X, SEG_Y)
+  const reelPosition = reelGeometry.attributes.position as ThreeNS.BufferAttribute
+  const reelBase = Float32Array.from(reelPosition.array)
+  const reelMaterial = new THREE.ShaderMaterial({
+    uniforms: { uMap: { value: null }, uPlane: { value: new THREE.Vector2(REEL_W, REEL_H) }, uT: { value: 0 } },
+    vertexShader,
+    fragmentShader: reelFragmentShader,
+    transparent: true,
+    depthTest: false,
+    side: THREE.DoubleSide,
+  })
+  const reelMesh = new THREE.Mesh(reelGeometry, reelMaterial)
+  reelMesh.frustumCulled = false
+  reelMesh.renderOrder = 1
+  scene.add(reelMesh)
+  const reelVideo = reel.querySelector('video')
+  let posterTexture: ThreeNS.Texture | null = null
+  let videoTexture: ThreeNS.VideoTexture | null = null
+  new THREE.TextureLoader().load(reelPoster, (loaded) => {
+    if (disposed) {
+      loaded.dispose()
+      return
+    }
+    posterTexture = loaded
+    if (!videoTexture) reelMaterial.uniforms.uMap.value = loaded
+  })
+
   let disposed = false
   let texture: ThreeNS.CanvasTexture | null = null
-  let viewLength = 12
-  let travel = 20
   let current = progressRef.current
+  let expanded = expandRef.current
+  let reelOpen = false
   let hovered = -1
   const ndc = new THREE.Vector2()
   let pointerInside = false
@@ -254,8 +339,6 @@ export function createRibbonScene(THREE: Three, { wrap, label, members, progress
     const viewHeight = 2 * Math.tan(THREE.MathUtils.degToRad(FOV / 2)) * CAMERA_Z
     const viewWidth = viewHeight * camera.aspect
     group.position.set(viewWidth * ANCHOR_X, viewHeight * ANCHOR_Y, 0)
-    viewLength = Math.hypot(viewWidth, viewHeight)
-    travel = START_X + totalLength + viewLength * END_MARGIN
   }
 
   // Bend the strip. `shift` is how far it has travelled along its own axis.
@@ -272,6 +355,49 @@ export function createRibbonScene(THREE: Three, { wrap, label, members, progress
     }
     position.needsUpdate = true
     geometry.computeBoundingSphere()
+  }
+
+  const lerp = (from: number, to: number, t: number) => from + (to - from) * t
+
+  // Bend the video panel exactly like the photos, then blend it (world position by world
+  // position) towards a flat sheet that fills the view: `t` 0 is its place in the strip,
+  // `t` 1 the whole screen.
+  function updateReel(shift: number, t: number) {
+    const viewHeight = 2 * Math.tan(THREE.MathUtils.degToRad(FOV / 2)) * CAMERA_Z
+    const viewWidth = viewHeight * camera.aspect
+    const start = totalLength + REEL_GAP
+    for (let i = 0; i < reelPosition.count; i++) {
+      const u = reelBase[i * 3] / REEL_W + 0.5 // 0..1 across the panel
+      const y = reelBase[i * 3 + 1]
+      const x = shift + start + u * REEL_W
+      const local = u * 2 - 1
+      const z = WRAP * x * x + BOW * y * y + PANEL_BEND * local * local + WAVE * Math.sin(x * 0.7 + y * 0.4)
+      tmp.set(x, y, z).applyMatrix4(group.matrixWorld)
+      const v = y / REEL_H + 0.5
+      reelPosition.setXYZ(
+        i,
+        lerp(tmp.x, (u - 0.5) * viewWidth, t),
+        lerp(tmp.y, (v - 0.5) * viewHeight, t),
+        lerp(tmp.z, 0, t),
+      )
+    }
+    reelPosition.needsUpdate = true
+    reelMaterial.uniforms.uT.value = t
+    reelMaterial.uniforms.uPlane.value.set(lerp(REEL_W, viewWidth, t), lerp(REEL_H, viewHeight, t))
+
+    // From the second the first frame exists the panel shows the video itself.
+    if (!videoTexture && reelVideo && reelVideo.readyState >= 2) {
+      videoTexture = new THREE.VideoTexture(reelVideo)
+      videoTexture.needsUpdate = true
+      reelMaterial.uniforms.uMap.value = videoTexture
+    }
+
+    reel.dataset.full = t > 0.96 ? '1' : '0'
+    const open = expanded > 0.03
+    if (open !== reelOpen) {
+      reelOpen = open
+      onReel(open)
+    }
   }
 
   function onPointerMove(event: PointerEvent) {
@@ -311,8 +437,15 @@ export function createRibbonScene(THREE: Three, { wrap, label, members, progress
     }
 
     current += (progressRef.current - current) * 0.1
-    bend(START_X - current * travel)
+    expanded += (expandRef.current - expanded) * 0.12
+    // The easing only ever approaches its target; close the last bit so the video lands
+    // exactly centred and square instead of a few pixels off.
+    if (Math.abs(expandRef.current - expanded) < 0.004) expanded = expandRef.current
+    if (Math.abs(progressRef.current - current) < 0.002) current = progressRef.current
+    const shift = START_X - current * travel
+    bend(shift)
     group.updateMatrixWorld(true)
+    updateReel(shift, expanded * expanded * (3 - 2 * expanded))
 
     // Which panel is under the pointer (the strip moves even when the pointer does not).
     let target = -1
@@ -346,6 +479,13 @@ export function createRibbonScene(THREE: Three, { wrap, label, members, progress
   resize()
   const observer = new ResizeObserver(resize)
   observer.observe(wrap)
+  // After a jump to another part of the page, land on the final state instead of easing there.
+  const snap = () => {
+    current = progressRef.current
+    expanded = expandRef.current
+    entered = enterRef.current
+  }
+  window.addEventListener('kyma:snap', snap)
   wrap.addEventListener('pointermove', onPointerMove, { passive: true })
   wrap.addEventListener('pointerleave', onPointerLeave)
   gsap.ticker.add(tick)
@@ -361,11 +501,16 @@ export function createRibbonScene(THREE: Three, { wrap, label, members, progress
       video.load()
       video.remove()
     }
+    window.removeEventListener('kyma:snap', snap)
     wrap.removeEventListener('pointermove', onPointerMove)
     wrap.removeEventListener('pointerleave', onPointerLeave)
     geometry.dispose()
     material.dispose()
     texture?.dispose()
+    reelGeometry.dispose()
+    reelMaterial.dispose()
+    posterTexture?.dispose()
+    videoTexture?.dispose()
     renderer.dispose()
     // Browsers cap the number of live WebGL contexts; release this one right away.
     renderer.forceContextLoss()

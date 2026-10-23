@@ -10,7 +10,8 @@ export function Header() {
           <Logotype className="h-5 align-top" label="Kyma, ir al inicio" />
         </NavLink>
 
-        <nav aria-label="Principal" className="text-xs font-medium">
+        {/* On phones the links live in the fixed menu button (MobileMenu). */}
+        <nav aria-label="Principal" className="hidden text-xs font-medium md:block">
           <ul className="flex flex-col items-end gap-1 sm:flex-row sm:gap-6 md:gap-10">
             {navLinks.map((link) => (
               <li key={link.href}>
