@@ -165,6 +165,8 @@ const fragmentShader = /* glsl */ `
     float grey = dot(colour, vec3(0.299, 0.587, 0.114));
     // Dimmed grayscale at rest; full colour on hover.
     vec3 base = mix(vec3(grey) * 0.62, colour, hover);
+    // On hover the picture dims a little, more towards the bottom where the name is written.
+    base *= 1.0 - hover * (0.12 + 0.45 * smoothstep(0.5, 0.0, vUv.y));
 
     vec3 normal = normalize(cross(dFdx(vView), dFdy(vView)));
     float facing = abs(normal.z);
@@ -462,9 +464,9 @@ export function createRibbonScene(
       hoverValues[i] += ((i === hovered ? 1 : 0) - hoverValues[i]) * 0.12
     }
 
-    // Pin the name tag to the bottom centre of the hovered panel.
+    // Pin the name tag over the bottom centre of the hovered panel; it stays level.
     if (hovered >= 0) {
-      const index = (SEG_Y - 3) * (SEG_X * count + 1) + hovered * SEG_X + SEG_X / 2
+      const index = (SEG_Y - 4) * (SEG_X * count + 1) + hovered * SEG_X + SEG_X / 2
       tmp.fromBufferAttribute(position, index)
       mesh.localToWorld(tmp)
       tmp.project(camera)

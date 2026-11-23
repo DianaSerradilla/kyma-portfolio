@@ -22,16 +22,16 @@ export type TeamMember = {
 }
 
 export const team: TeamMember[] = [
-  { id: 'matias-caballero', name: 'Matias Caballero', role: 'Diseñador', photo: matiasPoster, video: matiasVideo },
-  { id: 'nayla-barrera', name: 'Nayla Barrera', role: 'Diseñadora', photo: naylaPoster, video: naylaVideo },
+  { id: 'matias-caballero', name: 'Matias Caballero', role: 'Ux-Ui | Photographer and filmmaker', photo: matiasPoster, video: matiasVideo },
+  { id: 'nayla-barrera', name: 'Nayla Barrera', role: '3D Asset Artist', photo: naylaPoster, video: naylaVideo },
   {
     id: 'victoria-cancinos',
     name: 'Victoria Cancinos',
-    role: 'Diseñadora',
+    role: 'Audiovisual Producer & Branding',
     photo: victoriaPoster,
     video: victoriaVideo,
   },
-  { id: 'lukas-castro', name: 'Lukas Castro', role: 'Diseñador', photo: lukasPoster, video: lukasVideo },
-  { id: 'fernanda-gomez', name: 'Fernanda Gomez', role: 'Diseñadora', photo: fernandaPoster, video: fernandaVideo },
-  { id: 'diana-serradilla', name: 'Diana Serradilla', role: 'Diseñadora', photo: dianaPoster, video: dianaVideo },
+  { id: 'lukas-castro', name: 'Lukas Castro', role: 'Motion Graphics & Audiovisual Artist', photo: lukasPoster, video: lukasVideo },
+  { id: 'fernanda-gomez', name: 'Fernanda Gomez', role: 'Branding | 3D Art', photo: fernandaPoster, video: fernandaVideo },
+  { id: 'diana-serradilla', name: 'Diana Serradilla', role: 'Creative Technologist | AI • Web Design', photo: dianaPoster, video: dianaVideo },
 ]

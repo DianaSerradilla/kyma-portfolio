@@ -8,7 +8,9 @@ const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const
 
 // Fixed bottom bar that takes over from the header nav once the hero is left behind.
 export function DockNav() {
-  const [visible, setVisible] = useState(false)
+  const [scrolledPast, setVisible] = useState(false)
+  const [covered, setCovered] = useState(false)
+  const visible = scrolledPast && !covered
   const reduceMotion = useReducedMotion()
 
   useEffect(() => {
@@ -19,6 +21,13 @@ export function DockNav() {
     const observer = new IntersectionObserver(([entry]) => setVisible(!entry.isIntersecting))
     observer.observe(header)
     return () => observer.disconnect()
+  }, [])
+
+  // The manifesto video takes the whole screen; the bar hides until it is done.
+  useEffect(() => {
+    const onFull = (event: Event) => setCovered((event as CustomEvent<boolean>).detail)
+    window.addEventListener('kyma:video-full', onFull)
+    return () => window.removeEventListener('kyma:video-full', onFull)
   }, [])
 
   const itemClass = 'rounded-full'

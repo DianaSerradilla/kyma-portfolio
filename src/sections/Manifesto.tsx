@@ -2,8 +2,7 @@ import { useGSAP } from '@gsap/react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useEffect, useRef } from 'react'
-// TODO: placeholder, it is the hero's clip. Swap for the manifesto video.
-import manifestoVideo from '../assets/hero/hero-video.mp4'
+import manifestoVideo from '../assets/manifesto/manifiesto.mp4'
 import { Logo } from '../components/brand/Logo'
 import { SectionLabel } from '../components/ui/SectionLabel'
 
@@ -18,6 +17,8 @@ export function Manifesto() {
   const stageRef = useRef<HTMLDivElement>(null)
   const pillRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  // True once the scroll has gone past the full-screen video: it stays paused while it leaves.
+  const pastRef = useRef(false)
 
   // Plays only while it is on screen (and never for someone who prefers reduced motion).
   useEffect(() => {
@@ -25,7 +26,7 @@ export function Manifesto() {
     const stage = stageRef.current
     if (!video || !stage || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
     const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) void video.play().catch(() => undefined)
+      if (entry.isIntersecting && !pastRef.current) void video.play().catch(() => undefined)
       else video.pause()
     })
     observer.observe(stage)
@@ -43,7 +44,13 @@ export function Manifesto() {
       mm.add('(prefers-reduced-motion: no-preference)', () => {
         const startWidth = pill.offsetWidth
         const startHeight = pill.offsetHeight
-        gsap.set('[data-manifesto-line]', { opacity: 0, y: 40 })
+        // The bottom nav steps aside while the video fills the screen.
+        let full = false
+        const setFull = (next: boolean) => {
+          if (next === full) return
+          full = next
+          window.dispatchEvent(new CustomEvent('kyma:video-full', { detail: next }))
+        }
 
         gsap
           .timeline({
@@ -55,6 +62,18 @@ export function Manifesto() {
               end: 'bottom bottom',
               scrub: 0.4,
               invalidateOnRefresh: true,
+              onUpdate: (self) => setFull(self.progress >= 0.15 && self.progress < 0.999),
+              // Scrolling on after the full-screen video: it pauses as it leaves, and plays again if they come back.
+              onLeave: () => {
+                setFull(false)
+                pastRef.current = true
+                videoRef.current?.pause()
+              },
+              onEnterBack: () => {
+                pastRef.current = false
+                void videoRef.current?.play().catch(() => undefined)
+              },
+              onLeaveBack: () => setFull(false),
             },
           })
           .fromTo(
@@ -64,12 +83,14 @@ export function Manifesto() {
             0,
           )
           .to('[data-manifesto-label]', { opacity: 0, duration: 0.2 }, 0.15)
-          .to('[data-manifesto-line]', { opacity: 1, y: 0, duration: 0.2, ease: 'power3.out' }, 0.6)
           // The video stays full and still for the last stretch of the scroll.
           .to({}, { duration: 0.3 })
       })
 
-      return () => mm.revert()
+      return () => {
+        mm.revert()
+        window.dispatchEvent(new CustomEvent('kyma:video-full', { detail: false }))
+      }
     },
     { scope: sectionRef },
   )
@@ -101,16 +122,6 @@ export function Manifesto() {
               preload="metadata"
               className="absolute inset-0 size-full object-cover"
             />
-            {/* Appears over the video once it fills the screen. */}
-            <span
-              data-manifesto-line
-              className="absolute inset-0 grid place-items-center bg-ink/35 px-6 text-center font-display text-[clamp(2.5rem,8vw,8rem)] font-light uppercase leading-[0.95]"
-            >
-              <span>
-                Ideas en
-                <span className="block font-script text-[1.25em] normal-case leading-[0.9] text-paper">movimiento</span>
-              </span>
-            </span>
           </span>
           <span className="justify-self-start pl-[clamp(0.6rem,2.5vw,2.5rem)]">
             <Logo className="h-[clamp(1.5rem,6.5vw,6.5rem)]" />
